@@ -23,17 +23,6 @@ def create_rho_matrix(levels = d):
             rho_matrix[i,j] = globals()['rho_'+str(i+1)+str(j+1)]
     return numpy.matrix(rho_matrix)
 
-def Hamiltonian(Omegas, Deltas):
-    levels = len(Omegas)+1
-    H = numpy.zeros((levels,levels))
-    for i in range(levels):
-        for j in range(levels):
-            if numpy.logical_and(i==j, i!=0):
-                H[i,j] = -2*(numpy.sum(Deltas[:i]))
-            elif numpy.abs(i-j) == 1:
-                H[i,j] = Omegas[numpy.min([i,j])]
-    return numpy.matrix(H/2)
-
 def Lindblad_term(Ls):
     rhos = create_rho_matrix(levels = d)
     Lind_rho = numpy.zeros((d,d))
@@ -163,8 +152,6 @@ def EPM(initial_rho, final_time, H, Liouvillian):
    for P in Peig:
        chi = chi - P@initial_rho@P
        
-   '''Totally decohered initial datum.'''
-   decrho = initial_rho - chi
    
    '''Time propagation of the initial datum.'''
    rho0 = numpy.reshape(initial_rho, (levels**2,1))
@@ -180,18 +167,13 @@ def EPM(initial_rho, final_time, H, Liouvillian):
    rho0 = numpy.reshape(chi, (levels**2,1))
    chit = numpy.reshape(time_evolve(Liouvillian, final_time, rho0), (levels,levels))
    
-   '''Time propagation of the decohered initial datum.'''
-   rho0 = numpy.reshape(decrho, (levels**2,1))
-   decrhot = numpy.reshape(time_evolve(Liouvillian, final_time, rho0), (levels,levels))
-   
    coh = 0
    deltasigma = [] 
    
    for i in range(levels):
        coh = coh + energy_levels[i]*numpy.real(numpy.trace(Peig[i]@chit))
-       deltasigma.append(numpy.log(1 + numpy.real(numpy.trace(Peig[i]@chit))/numpy.real(numpy.trace(Peig[i]@decrhot))))
    
-   return [pepm, coh, deltasigma] 
+   return [pepm, coh] 
 
 '''Evaluating energy fluctuations starting from distributions'''
 def average_heat(pdf, eigen_energies):
@@ -199,7 +181,25 @@ def average_heat(pdf, eigen_energies):
     for i in range(len(eigen_energies)):
         for j in range(len(eigen_energies)):
                 Q = Q + pdf[i,j]*(eigen_energies[j]-eigen_energies[i]) 
-    return Q     
+    return Q
+
+'''Variance of the heat fluctuations'''
+def var_heat(pdf, eigen_energies):
+    aveQ2 = average_heat(pdf, eigen_energies)**2
+    x = 0
+    for i in range(len(eigen_energies)):
+        for j in range(len(eigen_energies)):
+                x = x + pdf[i,j]*(eigen_energies[j]-eigen_energies[i])**2
+    return (x - aveQ2)
+    
+
+'''Average of two-times observables'''
+def average(pdf, obs):
+    ave = 0
+    for i in range(4):
+        for j in range(4):
+                ave = ave + pdf[i,j]*obs[i,j] 
+    return ave     
 
 '''Fidelity/Loschimdt Echo'''
 def F(ro1,ro2):
