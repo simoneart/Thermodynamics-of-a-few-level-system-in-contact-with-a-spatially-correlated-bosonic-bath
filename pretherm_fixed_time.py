@@ -1,117 +1,173 @@
 from pretherm_main import *
 from mpl_toolkits.mplot3d import Axes3D
 
-#look at the program MHQ.py for the blueprint of other functions
-#(it's in few_levels_system)
-
-
-#Lindblad operators, correction term
-LB1 = np.sqrt(2*B)*sigma_minus[0]
-LB2 = np.sqrt(2*B)*sigma_minus[1]
-LA1 = np.sqrt(2*A)*sigma_plus[0]
-LA2 = np.sqrt(2*A)*sigma_plus[1]
-
-L = [LB1,LB2,LA1,LA2]
-
-Lindblad = Lindblad_term(L)
-correction = correction_term(alfa, A, B, sigma_plus, sigma_minus)
-
-Lrho = Lindblad + correction
-
-#LIOUVILLIAN OPERATOR
-L = OBE_matrix(Lrho) 
-
-angles1 = np.linspace(0, np.pi, 50)
-angles2 = np.linspace(0, np.pi, 50)
-CAEP = np.zeros((len(angles1),len(angles2)))
+#final time of measurement: ensures the prthermal regime
+final_t = 50
 
 '''
-CHARACTERIZATION OF THE COHERENCES-AFFECTED ENTROPY PRODUCTION
-FOR SEPARABLE INITIAL STATES.
+Select the initial data:
+    Th: thermal initial state with coherences, separable
+    Sep: separable, pure states
+    Ent: maximally entangled states
 '''
 
-for n in range(len(angles1)):
-    for m in range(len(angles2)):
-        theta1 = angles1[n]
-        rho_s1 = 0.5*np.array([[1+np.cos(theta1),np.sin(theta1)],[np.sin(theta1),1-np.cos(theta1)]])
+state = 'Sep'
+
+init_rhos = []
+
+if state == 'Th':
+    beta_S = 1.5*beta 
+    #the system is colder than the bath (larger \beta)
+    Delta_beta =  beta_S - beta
+
+    rho_th = np.diag([np.exp(-0.5*beta_S*omega0), np.exp(0.5*beta_S*omega0)])
+    part_func = np.trace(rho_th)
+    rho_th /= part_func
+
+    r_array = np.linspace(0, 1./part_func, 50)
+    #we saw that the phase is not relevant
+    
+    aveQepm = np.empty(len(r_array))
+    varQepm = np.empty(len(r_array))
+    
+    aveQtpm = np.empty(len(r_array))
+    varQtpm = np.empty(len(r_array))
+    
+    for n in range(len(r_array)):
+        r = r_array[n]
+
+        chi = np.array([[0,r],[r,0]])
+        rho1 = rho_th + chi
         
-        theta2 = angles2[m]
-        rho_s2 = 0.5*np.array([[1+np.cos(theta2),np.sin(theta2)],[np.sin(theta2),1-np.cos(theta2)]])
+        rho0 = np.kron(rho1, rho1)
         
-        rho0 = np.kron(rho_s1,rho_s2)
-        
-        #I now choose a fixed final time, s.t. the system is in the prethermal phase
-        final_t = 50
-        
-        '''EPM'''
+        Ptpm = TPM(rho0, final_t, H0s, L)
         epm = EPM(rho0, final_t, H0s, L)
         Pepm = np.array(epm[0])
-        coh_ef = np.array(epm[1])
-        deltasigma = np.array(epm[2])
         
-        sum_elem = 0
-        for i in range(levels):
-            for j in range(levels):
-                sum_elem += deltasigma[i]*Pepm[j][i]
+        aveQepm[n] = average_heat(Pepm, energy_levels)
+        varQepm[n] = var_heat(Pepm, energy_levels)
         
-        CAEP[n,m] = sum_elem
+        aveQtpm[n] = average_heat(Ptpm, energy_levels)
+        varQtpm[n] = var_heat(Ptpm, energy_levels)
+    
+    varQepm = np.sqrt(varQepm)
+    varQtpm = np.sqrt(varQtpm)
+        
+    plt.figure(1)
+    plt.grid()
+    plt.errorbar(r_array, aveQtpm, yerr=varQtpm, label = 'TPM')
+    plt.errorbar(r_array, aveQepm, yerr=varQepm, label = 'EPM')
+    plt.ylabel(r'$\Delta E$')
+    plt.xlabel('r')
+    plt.title(r'Average heat varying initial coherences')
+    plt.legend()
+    #plt.savefig('C:\\Users\\simon\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\std_XFTs.pdf', format='pdf')
+    
+    
+    plt.figure(2)
+    plt.grid()
+    plt.plot(r_array, varQtpm, label = 'TPM')
+    plt.plot(r_array, varQepm, label = 'EPM')
+    plt.ylabel(r'$\mathcal{Var}(\Delta E$)')
+    plt.xlabel('r')
+    plt.title(r'Heat fluctuations varying initial coherences')
+    plt.legend()
+    #plt.savefig('C:\\Users\\simon\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\std_XFTs.pdf', format='pdf')
+    
+    
 
-# Create a meshgrid
-x, y = np.meshgrid(angles1, angles2)
+if state == 'Sep':
+    angles1 = np.linspace(0, np.pi, 50)
+    angles2 = np.linspace(0, np.pi, 50)
+    
+    aveQepm = np.empty((len(angles1),len(angles2)))
+    varQepm = np.empty((len(angles1),len(angles2)))
+    
+    aveQtpm = np.empty((len(angles1),len(angles2)))
+    varQtpm = np.empty((len(angles1),len(angles2)))
+    
+    for n in range(len(angles1)):
+        for m in range(len(angles2)):
+            theta1 = angles1[n]
+            rho_s1 = 0.5*np.array([[1+np.cos(theta1),np.sin(theta1)],[np.sin(theta1),1-np.cos(theta1)]])
+            
+            theta2 = angles2[m]
+            rho_s2 = 0.5*np.array([[1+np.cos(theta2),np.sin(theta2)],[np.sin(theta2),1-np.cos(theta2)]])
+            
+            rho0 = np.kron(rho_s1,rho_s2)
+            
+            Ptpm = TPM(rho0, final_t, H0s, L)
+            epm = EPM(rho0, final_t, H0s, L)
+            Pepm = np.array(epm[0])
+            
+            aveQepm[n,m] = average_heat(Pepm, energy_levels)
+            varQepm[n,m] = var_heat(Pepm, energy_levels)
+            
+            aveQtpm[n,m] = average_heat(Ptpm, energy_levels)
+            varQtpm[n,m] = var_heat(Ptpm, energy_levels)
+            
+    # Create a meshgrid
+    x, y = np.meshgrid(angles1, angles2)
+    
+        
+    # Create a figure and a 3D axis
+    fig1 = plt.figure(figsize=(12, 6))
+    fig1.suptitle('Average heat varying initial coherences')
+    ax1 = fig1.add_subplot(121, projection='3d')
+    ax1.set_title(r'TPM')
+    # Plot the surface
+    ax1.plot_surface(x, y, aveQtpm, cmap='viridis')
+    # Add labels
+    ax1.set_xlabel(r'$\theta_1$')
+    ax1.set_ylabel(r'$\theta_2$')
+    ax1.set_zlabel(r'$\Delta E$')
+    
+    ax2 = fig1.add_subplot(122, projection='3d')
+    ax2.set_title(r'EPM')
+    # Plot the surface
+    ax2.plot_surface(x, y, aveQepm, cmap='viridis')
+    # Add labels
+    ax2.set_xlabel(r'$\theta_1$')
+    ax2.set_ylabel(r'$\theta_2$')
+    ax2.set_zlabel(r'$\Delta E$')
+    
+    # Create a figure and a 3D axis
+    fig2 = plt.figure(figsize=(12, 6))
+    fig2.suptitle('Heat fluctuations varying initial coherences')
+    ax1 = fig2.add_subplot(121, projection='3d')
+    ax1.set_title(r'TPM')
+    # Plot the surface
+    ax1.plot_surface(x, y, varQtpm, cmap='viridis')
+    # Add labels
+    ax1.set_xlabel(r'$\theta_1$')
+    ax1.set_ylabel(r'$\theta_2$')
+    ax1.set_zlabel(r'$\mathcal{Var}(\Delta E$)')
+    
+    ax2 = fig2.add_subplot(122, projection='3d')
+    ax2.set_title(r'EPM')
+    # Plot the surface
+    ax2.plot_surface(x, y, varQepm, cmap='viridis')
+    # Add labels
+    ax2.set_xlabel(r'$\theta_1$')
+    ax2.set_ylabel(r'$\theta_2$')
+    ax2.set_zlabel(r'$\mathcal{Var}(\Delta E$)')
+    
 
-# Create a figure and a 3D axis
-fig = plt.figure(figsize=(5, 5))
-ax = fig.add_subplot(111, projection='3d')
-ax.set_title(r'Coherences-affected entropy production - $\alpha = $'+str(alfa))
-# Plot the surface
-ax.plot_surface(x, y, CAEP, cmap='viridis')
-# Add labels
-ax.set_xlabel(r'$\theta_1$')
-ax.set_ylabel(r'$\theta_2$')
-ax.set_zlabel(r'$<\Delta \Sigma>_{EPM}$')
-#Contours
-ax.contour(x, y, CAEP, zdir='x', offset=0, cmap='viridis')
-ax.contour(x, y, CAEP, zdir='y', offset=np.pi, cmap='viridis')
-#plt.savefig('C:\\Users\\simon\\OneDrive\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\CAEP.pdf', format='pdf')
+if state == 'Ent':
+    rho4 = 0.5*np.array([[0,0,0,0],[0,1,-1,0],[0,-1,1,0],[0,0,0,0]])
+    rho3 = 0.5*np.array([[0,0,0,0],[0,1,1,0],[0,1,1,0],[0,0,0,0]])
+    rho1 = 0.5*np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])
+    rho2 = 0.5*np.array([[1,0,0,-1],[0,0,0,0],[0,0,0,0],[-1,0,0,1]])
+    
+    init_rhos = [rho1,rho2,rho3,rho4]
 
 
-'''
-(x) Can I get a negative MHQ distribution using entangled initial states? 
-    --> No, but look at their properties in terms of the observables, the show
-    some interesting thermodynamic behaviour (TPM>EPM or TPM=EPM, cfr main)
-    --> psi^{-} shows the most dramatic difference between EPM and TPM
-'''
-
-#HISTOGRAMS AT FIXED INITIAL DATUM
-rho0 = 0.5*np.array([[0,0,0,0],[0,1,-1,0],[0,-1,1,0],[0,0,0,0]])
-#rho0 = 0.5*np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])
 
 
-'''TPM'''
-Ptpm = TPM(rho0, final_t, H0s, L)
-Qtpm = average_heat(Ptpm,energy_levels)
 
-'''EPM'''
-epm = EPM(rho0, final_t, H0s, L)
-Pepm = np.array(epm[0])
-coh_ef = np.array(epm[1])
-deltasigma = np.array(epm[2])
 
-Qepm = average_heat(Pepm,energy_levels)
-
-deltasigma_ave = []
-
-sum_elem = 0
-for i in range(levels):
-    for j in range(levels):
-        sum_elem += deltasigma[i]*Pepm[j][i]
-deltasigma_ave.append(sum_elem)
-
-'''MHQ'''
-mhqp = MH(rho0, final_t, H0s, L)
-Qmhq = average_heat(mhqp, energy_levels)
-
-'''Histograms'''
+'''Histograms
 x1, y1 = hist_dist(mhqp, energy_levels)
 x2, y2 = hist_dist(Ptpm, energy_levels)
 x3, y3 = hist_dist(Pepm, energy_levels)
@@ -129,6 +185,5 @@ axs[2].set_title('EPM')
 fig.suptitle(r'Comparison of the distributions')
 for ax in axs:
     ax.set(xlabel='Q')
-#plt.savefig('C:\\Users\\simon\\OneDrive\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\histo.pdf', format='pdf')
-
-
+plt.savefig('C:\\Users\\simon\\OneDrive\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\histo.pdf', format='pdf')
+'''
