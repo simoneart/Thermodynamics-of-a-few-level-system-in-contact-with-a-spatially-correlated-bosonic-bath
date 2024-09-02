@@ -19,13 +19,12 @@ for rho in rho_set:
     Myy.append(M(I, rho)[1,1])
     Mzz.append(M(I, rho)[2,2])
 
-
-#Time step of th evolution and number of total steps
-dt = 0.01
-num_steps = 10000000
-times = [(n+1)*dt for n in range(0,num_steps//1000)] 
-times = times + [(n+1)*dt for n in range(num_steps//1000,num_steps,100)]
-length = len(times)
+# #Time step of th evolution and number of total steps
+# dt = 0.01
+# num_steps = 1000000
+# times = [(n+1)*dt for n in range(0,num_steps//1000)] 
+# times = times + [(n+1)*dt for n in range(num_steps//1000,num_steps,100)]
+# length = len(times)
 
 Qtpm = []
 Qepm = []
@@ -73,7 +72,7 @@ axs[1,1].grid()
 axs[1,1].set_title(r'$\Psi^-$')
 axs[1,1].set_xscale('log')
 fig.suptitle(r'Maximally Entangled initial states- $\alpha = $'+str(alfa))
-for ax in axs.flat:
+for ax in axs[1]:
     ax.set(xlabel='final time')
-plt.savefig('C:\\Users\\simon\\OneDrive\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\ent_fluct.pdf', format='pdf')
+plt.savefig('C:\\Users\\simon\\Desktop\\PhD - QThermo\\Pretherm\\pretherm spatial correlations\\pretherm1_images\\ent_fluct.pdf', format='pdf')
     
